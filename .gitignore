@@ -1,1 +1,17 @@
-/target
+# Rust build output
+/target/
+
+# Local environment files
+.env
+.env.*
+!.env.example
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Operating-system files
+.DS_Store
+Thumbs.db
