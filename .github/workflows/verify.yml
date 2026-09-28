@@ -14,6 +14,54 @@ concurrency:
   cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 jobs:
+  commit-messages:
+    name: Commit Message Governance
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout complete history
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Set up Node.js
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
+        with:
+          node-version: 24
+          cache: npm
+
+      - name: Install pinned governance dependencies
+        run: npm ci --ignore-scripts --no-audit --no-fund
+
+      - name: Self-test commit message contract
+        run: npm run test:commitlint
+
+      - name: Validate pull request title
+        if: github.event_name == 'pull_request'
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
+        run: |
+          printf '%s\n' "$PR_TITLE" |
+            npm exec --no -- commitlint --config commitlint.title.config.cjs --verbose
+
+      - name: Validate pull request commit range
+        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          npm exec --no -- commitlint             --from "$BASE_SHA"             --to "$HEAD_SHA"             --verbose
+
+      - name: Validate protected branch commit range
+        if: github.event_name == 'push'
+        env:
+          BASE_SHA: ${{ github.event.before }}
+          HEAD_SHA: ${{ github.sha }}
+        run: |
+          npm exec --no -- commitlint             --from "$BASE_SHA"             --to "$HEAD_SHA"             --verbose
+
   quality:
     name: Quality and tests
     runs-on: ubuntu-latest
@@ -30,6 +78,19 @@ jobs:
         with:
           toolchain: 1.98.1
           components: rustfmt, clippy
+
+      - name: Self-test pull request description contract
+        if: github.event_name == 'pull_request'
+        run: python3 scripts/validate_pr_description.py --self-test
+
+      - name: Validate pull request description
+        if: github.event_name == 'pull_request'
+        env:
+          PR_BODY: ${{ github.event.pull_request.body }}
+        run: |
+          printf '%s' "$PR_BODY" > "$RUNNER_TEMP/pull-request.md"
+          python3 scripts/validate_pr_description.py \
+            --body-file "$RUNNER_TEMP/pull-request.md"
 
       - name: Check formatting
         run: cargo fmt --all -- --check
@@ -63,12 +124,17 @@ jobs:
   required-ci:
     name: Required CI
     if: ${{ always() }}
-    needs: quality
+    needs:
+      - commit-messages
+      - quality
     runs-on: ubuntu-latest
     timeout-minutes: 5
 
     steps:
-      - name: Enforce quality result
+      - name: Enforce commit and quality results
         env:
+          COMMIT_RESULT: ${{ needs.commit-messages.result }}
           QUALITY_RESULT: ${{ needs.quality.result }}
-        run: test "$QUALITY_RESULT" = "success"
+        run: |
+          test "$COMMIT_RESULT" = "success"
+          test "$QUALITY_RESULT" = "success"
