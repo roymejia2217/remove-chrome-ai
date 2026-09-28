@@ -128,7 +128,8 @@ fn required_ci_remains_the_single_stable_merge_check() {
     let workflow = read_file(".github/workflows/verify.yml");
 
     assert!(workflow.contains("required-ci:"));
-    assert!(workflow.contains("needs: quality"));
+    assert!(workflow.contains("needs:\n      - commit-messages\n      - quality"));
+    assert!(workflow.contains(r#"test "$COMMIT_RESULT" = "success""#));
     assert!(workflow.contains(r#"test "$QUALITY_RESULT" = "success""#));
     assert!(!workflow.contains("\n  documentation:\n"));
 }

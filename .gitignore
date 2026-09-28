@@ -1,6 +1,11 @@
 # Rust build output
 /target/
 
+# Repository governance tooling
+/node_modules/
+/.husky/_/
+__pycache__/
+
 # Local environment files
 .env
 .env.*
