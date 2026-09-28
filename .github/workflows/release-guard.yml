@@ -35,13 +35,7 @@ jobs:
 
           PACKAGE_VERSION="$(
             cargo metadata --locked --no-deps --format-version 1 |
-              python3 -c '
-import json
-import sys
-metadata = json.load(sys.stdin)
-package = next(item for item in metadata["packages"] if item["name"] == "remove-chrome-ai")
-print(package["version"])
-'
+              python3 -c 'import json,sys; data=json.load(sys.stdin); print(next(p for p in data["packages"] if p["name"]=="remove-chrome-ai")["version"])'
           )"
 
           EXPECTED_TAG="v$PACKAGE_VERSION"
